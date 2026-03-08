@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Checkout</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        /* ── Header ─────────────────────────────────── */
+        header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-bottom: 1px solid #334155;
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        header .subtitle { font-size: 0.85rem; color: #94a3b8; }
+        .price-btn {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .price-btn:hover { border-color: #818cf8; color: #e2e8f0; }
+
+        /* ── Main layout ────────────────────────────── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 2rem;
+        }
+        @media (max-width: 860px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* ── Upload area ────────────────────────────── */
+        .upload-zone {
+            background: #1e293b;
+            border: 2px dashed #334155;
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 420px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #818cf8;
+            background: #1e293b;
+        }
+        .upload-zone svg { width: 64px; height: 64px; stroke: #475569; margin-bottom: 1rem; }
+        .upload-zone p { color: #64748b; font-size: 0.95rem; }
+        .upload-zone p span { color: #818cf8; text-decoration: underline; }
+        .upload-zone img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 0.75rem;
+        }
+        #fileInput { display: none; }
+
+        /* ── Sidebar ────────────────────────────────── */
+        .sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+        .card h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #cbd5e1;
+        }
+
+        /* ── Receipt / item list ────────────────────── */
+        .receipt-list { list-style: none; }
+        .receipt-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #1e293b;
+            font-size: 0.9rem;
+        }
+        .receipt-list li:last-child { border-bottom: none; }
+        .item-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .item-conf {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .item-price { font-weight: 600; color: #38bdf8; }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 1rem;
+            margin-top: 0.5rem;
+            border-top: 2px solid #334155;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .total-price { color: #34d399; }
+
+        /* ── Detect button ──────────────────────────── */
+        .detect-btn {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            color: #fff;
+            transition: all 0.2s;
+        }
+        .detect-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .detect-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ── Spinner ────────────────────────────────── */
+        .spinner {
+            display: none;
+            width: 20px; height: 20px;
+            border: 3px solid #475569;
+            border-top-color: #818cf8;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            color: #475569;
+            font-size: 0.9rem;
+            padding: 2rem 0;
+        }
+
+        /* ── Modal ──────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal h2 { margin-bottom: 1rem; }
+        .modal-close {
+            float: right;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .price-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #334155;
+        }
+        .price-row label { font-size: 0.9rem; }
+        .price-row input {
+            width: 90px;
+            padding: 0.4rem;
+            border: 1px solid #475569;
+            border-radius: 0.4rem;
+            background: #0f172a;
+            color: #e2e8f0;
+            text-align: right;
+            font-size: 0.9rem;
+        }
+        .save-prices-btn {
+            margin-top: 1rem;
+            width: 100%;
+            padding: 0.65rem;
+            border: none;
+            border-radius: 0.5rem;
+            background: #34d399;
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .save-prices-btn:hover { opacity: 0.9; }
+
+        /* ── Camera controls ───────────────────────── */
+        .mode-toggle {
+            display: flex;
+            gap: 0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            border: 1px solid #334155;
+            margin-bottom: 1rem;
+        }
+        .mode-toggle button {
+            flex: 1;
+            padding: 0.6rem 1rem;
+            border: none;
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-toggle button.active {
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+            color: #fff;
+        }
+        .camera-container {
+            position: relative;
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 1rem;
+            min-height: 420px;
+            display: none;
+            overflow: hidden;
+            align-items: center;
+            justify-content: center;
+        }
+        .camera-container video {
+            display: none;
+            width: 100%;
+            border-radius: 0.75rem;
+        }
+        .camera-container canvas {
+            display: none;
+        }
+        .camera-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 0.75rem;
+        }
+        .camera-placeholder {
+            text-align: center;
+            color: #475569;
+            padding: 2rem;
+        }
+        .camera-placeholder svg {
+            width: 64px;
+            height: 64px;
+            stroke: #475569;
+            margin-bottom: 1rem;
+        }
+        .camera-btn {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .camera-btn.start {
+            background: linear-gradient(135deg, #34d399, #059669);
+            color: #fff;
+        }
+        .camera-btn.stop {
+            background: linear-gradient(135deg, #f87171, #dc2626);
+            color: #fff;
+        }
+        .camera-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+        .fps-badge {
+            position: absolute;
+            top: 0.75rem;
+            left: 0.75rem;
+            background: rgba(0,0,0,0.7);
+            color: #34d399;
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 10;
+            display: none;
+        }
+
+        /* ── Status badge ───────────────────────────── */
+        .status-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-badge.ready { background: #064e3b; color: #34d399; }
+        .status-badge.detecting { background: #312e81; color: #818cf8; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────── -->
+<header>
+    <div>
+        <h1>Smart Checkout</h1>
+        <div class="subtitle">YOLO-Powered Product Detection</div>
+    </div>
+    <div style="display:flex; gap:0.75rem; align-items:center;">
+        <span class="status-badge ready" id="statusBadge">Ready</span>
+        <button class="price-btn" onclick="openPriceModal()">Edit Prices</button>
+    </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────── -->
+<div class="container">
+
+    <!-- Left: Upload / Camera -->
+    <div>
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+            <button id="modeUpload" class="active" onclick="switchMode('upload')">Upload Image</button>
+            <button id="modeCamera" onclick="switchMode('camera')">Live Camera</button>
+        </div>
+
+        <!-- Upload zone (existing) -->
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+            <p>Drag &amp; drop an image here or <span>browse</span></p>
+        </div>
+        <input type="file" id="fileInput" accept="image/*">
+
+        <!-- Camera feed container -->
+        <div class="camera-container" id="cameraContainer">
+            <span class="fps-badge" id="fpsBadge">-- FPS</span>
+            <video id="cameraVideo" autoplay playsinline></video>
+            <canvas id="cameraCanvas"></canvas>
+            <img id="cameraResult" alt="detection result">
+            <div class="camera-placeholder" id="cameraPlaceholder">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/>
+                </svg>
+                <p>Click "Start Camera" to begin live detection</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Sidebar -->
+    <div class="sidebar">
+        <!-- Upload mode controls -->
+        <div id="uploadControls">
+            <button class="detect-btn" id="detectBtn" disabled onclick="runDetection()">
+                Detect &amp; Price
+            </button>
+            <div class="spinner" id="spinner"></div>
+        </div>
+        <!-- Camera mode controls -->
+        <div id="cameraControls" style="display:none;">
+            <button class="camera-btn start" id="cameraToggleBtn" onclick="toggleCamera()">
+                Start Camera
+            </button>
+        </div>
+
+        <div class="card">
+            <h2>Detected Items</h2>
+            <div id="resultsArea">
+                <div class="empty-state">Upload an image to start scanning</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Price Editor Modal ─────────────────────────── -->
+<div class="modal-overlay" id="priceModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closePriceModal()">&times;</button>
+        <h2>Product Prices</h2>
+        <div id="priceList">Loading...</div>
+        <button class="save-prices-btn" onclick="savePrices()">Save All Prices</button>
+    </div>
+</div>
+
+<script>
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput  = document.getElementById('fileInput');
+    const detectBtn  = document.getElementById('detectBtn');
+    const spinner    = document.getElementById('spinner');
+    const resultsArea = document.getElementById('resultsArea');
+    const statusBadge = document.getElementById('statusBadge');
+
+    let selectedFile = null;
+
+    // ── Drag & Drop ──────────────────────────────────
+    uploadZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+    uploadZone.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+        if (!file.type.startsWith('image/')) return;
+        selectedFile = file;
+        detectBtn.disabled = false;
+
+        // Preview
+        const reader = new FileReader();
+        reader.onload = e => {
+            uploadZone.innerHTML = `<img src="${e.target.result}" alt="preview">`;
+        };
+        reader.readAsDataURL(file);
+
+        // Reset results
+        resultsArea.innerHTML = '<div class="empty-state">Click "Detect &amp; Price" to scan</div>';
+    }
+
+    // ── Detection ────────────────────────────────────
+    async function runDetection() {
+        if (!selectedFile) return;
+
+        detectBtn.disabled = true;
+        spinner.style.display = 'block';
+        statusBadge.textContent = 'Detecting...';
+        statusBadge.className = 'status-badge detecting';
+
+        const formData = new FormData();
+        formData.append('image', selectedFile);
+
+        try {
+            const resp = await fetch('/detect', { method: 'POST', body: formData });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+
+            // Show annotated image
+            uploadZone.innerHTML = `<img src="data:image/jpeg;base64,${data.annotated_image}" alt="result">`;
+
+            // Build receipt
+            if (data.detections.length === 0) {
+                resultsArea.innerHTML = '<div class="empty-state">No products detected. Try another image.</div>';
+            } else {
+                let html = '<ul class="receipt-list">';
+                for (const det of data.detections) {
+                    html += `
+                        <li>
+                            <div class="item-name">
+                                <span>${det.display_name}</span>
+                                <span class="item-conf">${Math.round(det.confidence * 100)}%</span>
+                            </div>
+                            <span class="item-price">${det.currency} ${det.price.toFixed(2)}</span>
+                        </li>`;
+                }
+                html += '</ul>';
+                html += `
+                    <div class="total-row">
+                        <span>Total (${data.total_items} item${data.total_items !== 1 ? 's' : ''})</span>
+                        <span class="total-price">${data.currency} ${data.total_price.toFixed(2)}</span>
+                    </div>`;
+                resultsArea.innerHTML = html;
+            }
+        } catch (err) {
+            resultsArea.innerHTML = `<div class="empty-state" style="color:#f87171;">Error: ${err.message}</div>`;
+        } finally {
+            detectBtn.disabled = false;
+            spinner.style.display = 'none';
+            statusBadge.textContent = 'Ready';
+            statusBadge.className = 'status-badge ready';
+        }
+    }
+
+    // ── Price Editor ─────────────────────────────────
+    async function openPriceModal() {
+        document.getElementById('priceModal').classList.add('active');
+        const priceList = document.getElementById('priceList');
+        priceList.innerHTML = 'Loading...';
+
+        try {
+            const resp = await fetch('/products');
+            if (!resp.ok) throw new Error('Failed to load products');
+            const products = await resp.json();
+            let html = '';
+            for (const p of products) {
+                html += `
+                    <div class="price-row">
+                        <label>${p.display_name}</label>
+                        <input type="number" step="0.25" min="0"
+                               id="price_${p.class_name}" value="${p.price.toFixed(2)}">
+                    </div>`;
+            }
+            priceList.innerHTML = html;
+        } catch (err) {
+            priceList.innerHTML = `<div style="color:#f87171;">Failed to load prices.</div>`;
+        }
+    }
+
+    function closePriceModal() {
+        document.getElementById('priceModal').classList.remove('active');
+    }
+
+    async function savePrices() {
+        const inputs = document.querySelectorAll('#priceList input');
+        const promises = [];
+        for (const input of inputs) {
+            const className = input.id.replace('price_', '');
+            const price = parseFloat(input.value);
+            if (isNaN(price) || price < 0) continue;
+            promises.push(
+                fetch(`/products/${encodeURIComponent(className)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ price }),
+                })
+            );
+        }
+        await Promise.all(promises);
+        closePriceModal();
+    }
+
+    // ── Camera / Live Feed ────────────────────────────
+    const cameraContainer = document.getElementById('cameraContainer');
+    const cameraVideo     = document.getElementById('cameraVideo');
+    const cameraCanvas    = document.getElementById('cameraCanvas');
+    const cameraResult    = document.getElementById('cameraResult');
+    const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+    const cameraToggleBtn = document.getElementById('cameraToggleBtn');
+    const fpsBadge        = document.getElementById('fpsBadge');
+
+    let cameraStream = null;
+    let cameraRunning = false;
+    let processingFrame = false;
+
+    function switchMode(mode) {
+        const modeUploadBtn = document.getElementById('modeUpload');
+        const modeCameraBtn = document.getElementById('modeCamera');
+        const uploadControls = document.getElementById('uploadControls');
+        const cameraControls = document.getElementById('cameraControls');
+
+        if (mode === 'upload') {
+            modeUploadBtn.classList.add('active');
+            modeCameraBtn.classList.remove('active');
+            uploadZone.style.display = '';
+            document.getElementById('fileInput').style.display = '';
+            cameraContainer.style.display = 'none';
+            uploadControls.style.display = '';
+            cameraControls.style.display = 'none';
+            // Stop camera if running
+            if (cameraRunning) stopCamera();
+        } else {
+            modeCameraBtn.classList.add('active');
+            modeUploadBtn.classList.remove('active');
+            uploadZone.style.display = 'none';
+            cameraContainer.style.display = 'flex';
+            uploadControls.style.display = 'none';
+            cameraControls.style.display = '';
+        }
+        // Reset results
+        resultsArea.innerHTML = '<div class="empty-state">Upload an image or start the camera</div>';
+    }
+
+    async function toggleCamera() {
+        if (cameraRunning) {
+            stopCamera();
+        } else {
+            await startCamera();
+        }
+    }
+
+    async function startCamera() {
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+            });
+            cameraVideo.srcObject = cameraStream;
+            cameraVideo.style.display = 'none'; // hidden, used only for capture
+            cameraPlaceholder.style.display = 'none';
+            cameraResult.style.display = 'block';
+            fpsBadge.style.display = 'block';
+
+            cameraRunning = true;
+            cameraToggleBtn.textContent = 'Stop Camera';
+            cameraToggleBtn.className = 'camera-btn stop';
+
+            statusBadge.textContent = 'Live';
+            statusBadge.className = 'status-badge detecting';
+
+            // Wait for video to be ready then start loop
+            cameraVideo.onloadedmetadata = () => {
+                cameraCanvas.width = cameraVideo.videoWidth;
+                cameraCanvas.height = cameraVideo.videoHeight;
+                processLoop();
+            };
+        } catch (err) {
+            resultsArea.innerHTML = `<div class="empty-state" style="color:#f87171;">Camera error: ${err.message}</div>`;
+        }
+    }
+
+    function stopCamera() {
+        cameraRunning = false;
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(t => t.stop());
+            cameraStream = null;
+        }
+        cameraVideo.srcObject = null;
+        cameraVideo.style.display = 'none';
+        cameraResult.style.display = 'none';
+        fpsBadge.style.display = 'none';
+        cameraPlaceholder.style.display = '';
+
+        cameraToggleBtn.textContent = 'Start Camera';
+        cameraToggleBtn.className = 'camera-btn start';
+
+        statusBadge.textContent = 'Ready';
+        statusBadge.className = 'status-badge ready';
+    }
+
+    async function processLoop() {
+        if (!cameraRunning) return;
+
+        if (!processingFrame) {
+            processingFrame = true;
+            const startTime = performance.now();
+
+            // Capture frame from video to canvas
+            const ctx = cameraCanvas.getContext('2d');
+            ctx.drawImage(cameraVideo, 0, 0);
+            const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.8);
+            const b64 = dataUrl.split(',')[1];
+
+            try {
+                const resp = await fetch('/detect_frame', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: b64 }),
+                });
+
+                if (resp.ok) {
+                    const data = await resp.json();
+
+                    // Show annotated frame
+                    cameraResult.src = 'data:image/jpeg;base64,' + data.annotated_image;
+
+                    // Update receipt
+                    if (data.detections.length === 0) {
+                        resultsArea.innerHTML = '<div class="empty-state">No products detected</div>';
+                    } else {
+                        let html = '<ul class="receipt-list">';
+                        for (const det of data.detections) {
+                            html += `
+                                <li>
+                                    <div class="item-name">
+                                        <span>${det.display_name}</span>
+                                        <span class="item-conf">${Math.round(det.confidence * 100)}%</span>
+                                    </div>
+                                    <span class="item-price">${det.currency} ${det.price.toFixed(2)}</span>
+                                </li>`;
+                        }
+                        html += '</ul>';
+                        html += `
+                            <div class="total-row">
+                                <span>Total (${data.total_items} item${data.total_items !== 1 ? 's' : ''})</span>
+                                <span class="total-price">${data.currency} ${data.total_price.toFixed(2)}</span>
+                            </div>`;
+                        resultsArea.innerHTML = html;
+                    }
+
+                    // FPS calculation
+                    const elapsed = performance.now() - startTime;
+                    const fps = Math.round(1000 / elapsed);
+                    fpsBadge.textContent = fps + ' FPS';
+                }
+            } catch (err) {
+                // Ignore transient errors, keep looping
+            }
+            processingFrame = false;
+        }
+
+        // Schedule next frame
+        if (cameraRunning) {
+            requestAnimationFrame(processLoop);
+        }
+    }
+</script>
+
+</body>
+</html>
